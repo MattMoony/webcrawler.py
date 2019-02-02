@@ -46,7 +46,10 @@ def evaluate_doc(html):
         info["title"] = soup.title.string or ""
     else:
         info["title"] = ""
-    info["lang"] = soup.html.get('lang') or ""
+    if soup.html:
+        info["lang"] = soup.html.get('lang') or ""
+    else:
+        info["lang"] = ""
 
     info["a_count"] = len(soup.find_all('a'))
     info["img_count"] = len(soup.find_all('img'))
@@ -136,6 +139,7 @@ def crawl(undiscovered, discovered, default_url=None, thread_name="", indexer_co
             if len(res[0])>0:
                 for dis in res[0]:
                     if len(dis.keys())>0:
+                        dis["link_info"] = c_doc["link_info"] if c_doc and c_doc["link_info"] else ""
                         discovered.insert_one(dis)
 
             dis_docs = [{'url': d[0], 'link_info': d[1]} for d in res[1]]
