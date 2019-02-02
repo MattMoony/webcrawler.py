@@ -13,5 +13,5 @@ Dependencies:<br>
     - urllib<br>
     - os<br>
     - _thread<br>
-    - re
+    - re<br>
     - colorama
