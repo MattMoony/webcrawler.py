@@ -231,16 +231,30 @@ def crawl(undiscovered, discovered, default_url=None, thread_name="", indexer_co
             print("Invalid URL ... ")
 
 def main():
+    app_name = Fore.LIGHTBLUE_EX + "CRAWLER.PY" + Fore.RESET
     file_path = os.path.dirname(os.path.abspath(__file__))
 
     crawler_conf = json.load(open(os.path.join(file_path, 'crawler.conf.json')))
     db_conf = json.load(open(os.path.join(file_path, 'db.conf.json')))
 
-    db = pymongo.MongoClient(db_conf['address'])[db_conf['db_name']]
+    db = pymongo.MongoClient(db_conf['address'],
+                username = db_conf['username'],
+                password = db_conf['password'],
+                authSource = db_conf['db_name']
+            )[db_conf['db_name']]
+        
     undiscovered = db[db_conf['undiscovered_col']]
     discovered = db[db_conf['discovered_col']]
 
-    print(" [CRAWLER.PY]: Starting crawlers ... ")
+    try:
+        print(" [%s]: Testing database connectivity ... " % (app_name))
+        undiscovered.find_one({})
+    except pymongo.errors.OperationFailure as e:
+        print(" [%s]: Couldn't connect to database: %s" % (app_name, e))
+        return
+
+    print(" [%s]: Connected to database! " % (app_name))
+    print(" [%s]: Starting crawlers ... " % (app_name))
 
     # Start crawler(s) ... 
     _thread.start_new_thread(crawl, (undiscovered, discovered, crawler_conf['start_url'] or None, 
