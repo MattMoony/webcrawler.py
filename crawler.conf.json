@@ -2,5 +2,11 @@
     "start_url": "links.cncwebsite.com/",
     "protocols": ["http", "https"],
     "indexable_docs": ["html", "php", "asp"],
-    "image_types": ["png", "jpg", "jpeg", "gif", "tif", "bmp"]
+    "image_types": ["png", "jpg", "jpeg", "gif", "tif", "bmp"],
+    "index_words_limit": 64,
+    "ignored_words": ["you", "your", "you're", "are", "for", "do", "to", "is", "us", "it", "we", "on", "the", "car",
+                        "and", "can", "yes", "no", "go", "if", "not", "when", "just", "need", "this", "about", "in",
+                        "or", "me", "at", "as", "our", "be", "of", "out", "get", "from", "use", "all", "by", "away",
+                        "come", "used", "back", "use", "any", "needs", "that", "make", "have", "put", "them", "with",
+                        "now", "test"]
 }

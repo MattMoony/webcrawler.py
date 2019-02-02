@@ -6,6 +6,57 @@ from bson.objectid import ObjectId
 import urllib.parse
 import os
 import _thread
+import re
+
+from colorama import init
+init()
+from colorama import Fore
+
+class PriorityQueue(object):
+    def __init__(self):
+        self.els = []
+
+    def add(self, priority, value):
+        self.els.append((0, ''))
+
+        for i in range(len(self.els)-2, -1, -1):
+            if i >= 0 and self.els[i][0] < priority:
+                self.els[i+1] = self.els[i]
+            else:
+                self.els[i+1] = (priority, value)
+                return i+1
+        self.els[0] = (priority, value)
+    
+    def peak(self):
+        return self.els[0][1] if len(self.els) > 0 else None
+
+    def peak_w_priority(self):
+        return self.els[0] if len(self.els) > 0 else None
+
+    def get(self):
+        if len(self.els) > 0:
+            v = self.els[0][1]
+            del self.els[0]
+
+            return v
+        return None
+
+    def get_w_priority(self):
+        if len(self.els) > 0:
+            e = self.els[0]
+            del self.els[0]
+
+            return e
+        return None
+
+    def contains(self, value):
+        return value in [x[1] for x in self.els]
+
+    def __str__(self):
+        return "PriorityQueue([" + ', '.join([str(x[1]) for x in self.els]) + "])"
+
+    def __len__(self):
+        return len(self.els)
 
 def parse_url(url, current_url=""):
     if "://" in url:
@@ -38,7 +89,27 @@ def domain_from_url(url):
 def path_from_url(url):
     return '/' + '/'.join(url.split("://")[1].split("/")[1:])
 
-def evaluate_doc(html):
+def common_words(text_content, ignored_words=[], words_limit=10):
+    words = PriorityQueue()
+    print("Getting common words ... ", end='')
+
+    # Remove full stops, question- and exclamation marks ... 
+    text_content = re.sub(r"[.!?]+(\s+|$)", " ", text_content)
+
+    for w in re.split(r"[\s\n\r]+", text_content):
+        w = w.lower()
+        w = w.replace(',', '')
+
+        if words.contains(w) or len(w) <= 1\
+             or re.fullmatch(r"\d+", w) or re.fullmatch(r"\W+", w)\
+             or w in ignored_words:
+            continue
+
+        words.add(text_content.count(w), w)
+
+    return [words.get_w_priority() for i in range(min((words_limit, len(words))))]
+
+def evaluate_doc(html, ignored_words=[], index_words_limit=10):
     soup = BeautifulSoup(html, 'lxml')
     info = dict()
 
@@ -54,13 +125,20 @@ def evaluate_doc(html):
     info["a_count"] = len(soup.find_all('a'))
     info["img_count"] = len(soup.find_all('img'))
 
+    [s.extract() for s in soup.find_all('script')]
+    [s.extract() for s in soup.find_all('style')]
+
+    text_content = soup.get_text()
+    info["frequent_words"] = common_words(text_content, ignored_words, index_words_limit)
+
     return (
         info,
         soup.find_all('a'),
         soup.find_all('img')
     )
 
-def index_webpage(url, protocols=[], indexable_docs=[], image_types=[], thread_name=""):
+def index_webpage(url, protocols=[], indexable_docs=[], image_types=[], 
+        thread_name="", ignored_words=[], index_words_limit=10):
     doc_infos = []
     found_docs = []
     found_imgs = []
@@ -74,7 +152,7 @@ def index_webpage(url, protocols=[], indexable_docs=[], image_types=[], thread_n
                 print(" [" + str(thread_name) + "] Indexing \"" + curl + "\" ... ", end='')
                 
                 if ext in indexable_docs or curl.endswith('/'):
-                    doc_info, links, imgs = evaluate_doc(req.get(curl).text)
+                    doc_info, links, imgs = evaluate_doc(req.get(curl).text, ignored_words, index_words_limit)
 
                     doc_infos.append(doc_info)
 
@@ -162,13 +240,18 @@ def main():
     undiscovered = db[db_conf['undiscovered_col']]
     discovered = db[db_conf['discovered_col']]
 
+    print(" [CRAWLER.PY]: Starting crawlers ... ")
+
     # Start crawler(s) ... 
     _thread.start_new_thread(crawl, (undiscovered, discovered, crawler_conf['start_url'] or None, 
-                                        "Thread-1", {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
+                                        Fore.LIGHTCYAN_EX + "Thread-1" + Fore.RESET, 
+                                        {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
     _thread.start_new_thread(crawl, (undiscovered, discovered, crawler_conf['start_url'] or None, 
-                                        "Thread-2", {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
+                                        Fore.LIGHTGREEN_EX + "Thread-2" + Fore.RESET, 
+                                        {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
     _thread.start_new_thread(crawl, (undiscovered, discovered, crawler_conf['start_url'] or None, 
-                                        "Thread-3", {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
+                                        Fore.LIGHTMAGENTA_EX + "Thread-3" + Fore.RESET, 
+                                        {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
 
     while _thread._count() > 0:
         pass

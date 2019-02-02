@@ -12,4 +12,6 @@ Dependencies:<br>
     - bson<br>
     - urllib<br>
     - os<br>
-    - _thread
+    - _thread<br>
+    - re
+    - colorama
