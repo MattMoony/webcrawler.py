@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from bson.objectid import ObjectId
 import urllib.parse
 import os
+import _thread
 
 def parse_url(url, current_url=""):
     if "://" in url:
@@ -21,6 +22,8 @@ def parse_url(url, current_url=""):
 
     if "?" in url:
         url = url.split("?")[0]
+    if "#" in url:
+        url = url.split("#")[0]
     if get_extension(url) == "" and not url.endswith('/'):
         url += '/'
     
@@ -54,7 +57,7 @@ def evaluate_doc(html):
         soup.find_all('img')
     )
 
-def index_webpage(url, protocols=[], indexable_docs=[], image_types=[]):
+def index_webpage(url, protocols=[], indexable_docs=[], image_types=[], thread_name=""):
     doc_infos = []
     found_docs = []
     found_imgs = []
@@ -65,7 +68,7 @@ def index_webpage(url, protocols=[], indexable_docs=[], image_types=[]):
                 curl = prot + "://" + url
                 ext = get_extension(curl)
 
-                print("Indexing \"" + curl + "\" ... ", end='')
+                print(" [" + str(thread_name) + "] Indexing \"" + curl + "\" ... ", end='')
                 
                 if ext in indexable_docs or curl.endswith('/'):
                     doc_info, links, imgs = evaluate_doc(req.get(curl).text)
@@ -114,33 +117,36 @@ def index_webpage(url, protocols=[], indexable_docs=[], image_types=[]):
         found_imgs
     )
 
-def crawl(undiscovered, discovered, default_url=None, indexer_config={}): # both mongodb collections ...
+def crawl(undiscovered, discovered, default_url=None, thread_name="", indexer_config={}): # both mongodb collections ...
     while True:
-        c_doc = undiscovered.find_one()
-        url = ""
+        try:
+            c_doc = undiscovered.find_one()
+            url = ""
 
-        if c_doc != None:
-            undiscovered.delete_one({'_id': ObjectId(c_doc['_id'])})
-            url = c_doc['url']
-        elif default_url != None:
-            url = default_url
-        else:
-            print(" -> No more undiscovered URLs ... ")
-            return
+            if c_doc != None:
+                undiscovered.delete_one({'_id': ObjectId(c_doc['_id'])})
+                url = c_doc['url']
+            elif default_url != None:
+                url = default_url
+            else:
+                print(" -> No more undiscovered URLs ... ")
+                return
 
-        res = index_webpage(url, **indexer_config)
-        if len(res[0])>0:
-            for dis in res[0]:
-                if len(dis.keys())>0:
-                    discovered.insert_one(dis)
+            res = index_webpage(url, thread_name=thread_name, **indexer_config)
+            if len(res[0])>0:
+                for dis in res[0]:
+                    if len(dis.keys())>0:
+                        discovered.insert_one(dis)
 
-        dis_docs = [{'url': d[0], 'link_info': d[1]} for d in res[1]]
-        dis_imgs = [{'url': i[0], 'link_info': i[1]} for i in res[2]]
-            
-        if len(dis_docs) > 0:
-            undiscovered.insert_many(dis_docs)
-        if len(dis_imgs) > 0:
-            undiscovered.insert_many(dis_imgs)
+            dis_docs = [{'url': d[0], 'link_info': d[1]} for d in res[1]]
+            dis_imgs = [{'url': i[0], 'link_info': i[1]} for i in res[2]]
+
+            if len(dis_docs) > 0:
+                undiscovered.insert_many(dis_docs)
+            if len(dis_imgs) > 0:
+                undiscovered.insert_many(dis_imgs)
+        except req.exceptions.InvalidURL:
+            print("Invalid URL ... ")
 
 def main():
     file_path = os.path.dirname(os.path.abspath(__file__))
@@ -152,7 +158,16 @@ def main():
     undiscovered = db[db_conf['undiscovered_col']]
     discovered = db[db_conf['discovered_col']]
 
-    crawl(undiscovered, discovered, crawler_conf['start_url'] or None, {k:v for k,v in crawler_conf.items() if k != 'start_url'})
+    # Start crawler(s) ... 
+    _thread.start_new_thread(crawl, (undiscovered, discovered, crawler_conf['start_url'] or None, 
+                                        "Thread-1", {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
+    _thread.start_new_thread(crawl, (undiscovered, discovered, crawler_conf['start_url'] or None, 
+                                        "Thread-2", {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
+    _thread.start_new_thread(crawl, (undiscovered, discovered, crawler_conf['start_url'] or None, 
+                                        "Thread-3", {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
+
+    while _thread._count() > 0:
+        pass
 
 if __name__ == '__main__':
     main()

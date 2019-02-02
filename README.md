@@ -11,4 +11,5 @@ Dependencies:<br>
     - lxml<br>
     - bson<br>
     - urllib<br>
-    - os
+    - os<br>
+    - _thread
