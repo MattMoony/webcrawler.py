@@ -8,5 +8,7 @@ Dependencies:<br>
     - pymongo<br>
     - requests<br>
     - bs4<br>
+    - lxml<br>
     - bson<br>
-    - urllib
+    - urllib<br>
+    - os

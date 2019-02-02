@@ -1,4 +1,6 @@
 {
-    "start-url": "http://links.cncwebsite.com/",
-    "supported-protocols": ["http", "https"]
+    "start_url": "links.cncwebsite.com/",
+    "protocols": ["http", "https"],
+    "indexable_docs": ["html", "php", "asp"],
+    "image_types": ["png", "jpg", "jpeg", "gif", "tif", "bmp"]
 }
