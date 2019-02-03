@@ -152,7 +152,7 @@ def index_webpage(url, protocols=[], indexable_docs=[], image_types=[],
                 print(" [" + str(thread_name) + "] Indexing \"" + curl + "\" ... ", end='')
                 
                 if ext in indexable_docs or path_from_url(curl).endswith('/'):
-                    doc_info, links, imgs = evaluate_doc(req.get(curl, timeout=2).text, ignored_words, index_words_limit)
+                    doc_info, links, imgs = evaluate_doc(req.get(curl, timeout=5).text, ignored_words, index_words_limit)
 
                     doc_infos.append(doc_info)
 
@@ -231,7 +231,8 @@ def crawl(undiscovered, discovered, default_url=None, thread_name="", indexer_co
 
                             if "title" in dis.keys():
                                 discovered.find_one_and_update(
-                                    {'domain': dis['domain'], 'path': dis['path']},
+                                    {'domain': dis['domain'], 'path': dis['path'],
+                                        'title': {'$exists': True}},
                                     {'$set': { 'title': dis['title'],
                                                 'frequent_words': dis['frequent_words'],
                                                 'lang': dis['lang'],
