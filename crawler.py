@@ -84,10 +84,10 @@ def get_extension(url):
     return url.split("/")[-1].split(".")[-1] if "." in url else ""
 
 def domain_from_url(url):
-    return url.split("://")[1][: url.split("://")[1].index('/') if '/' in url.split('://') else None]
+    return url.split("://")[1][: url.split("://")[1].index('/') if '/' in url.split('://') else None].replace('/', '')
 
 def path_from_url(url):
-    return '/' + '/'.join(url.split("://")[1].split("/")[1:]).replace('//', '/')
+    return re.sub(r"\/{2,}", '', '/' + '/'.join(url.split("://")[1].split("/")[1:]))
 
 def common_words(text_content, ignored_words=[], words_limit=10):
     words = PriorityQueue()
@@ -225,14 +225,19 @@ def crawl(undiscovered, discovered, default_url=None, thread_name="", indexer_co
                             discovered.find_one_and_update(
                                 {'domain': dis['domain'], 'path': dis['path']},
                                 {'$addToSet': { 'link_info': { '$each': dis['link_info'] },
-                                                'protocols': { '$each': dis['protocols'] }},
-                                 '$set': { 'title': dis['title'],
-                                           'frequent_words': dis['frequent_words'],
-                                           'lang': dis['lang'],
-                                           'a_count': dis['a_count'],
-                                           'img_count': dis['img_count'] }
+                                                'protocols': { '$each': dis['protocols'] }}
                                 }
                             )
+
+                            if "title" in dis.keys():
+                                discovered.find_one_and_update(
+                                    {'domain': dis['domain'], 'path': dis['path']},
+                                    {'$set': { 'title': dis['title'],
+                                                'frequent_words': dis['frequent_words'],
+                                                'lang': dis['lang'],
+                                                'a_count': dis['a_count'],
+                                                'img_count': dis['img_count'] }}
+                                )
                         else:
                             discovered.insert_one(dis)
                         
