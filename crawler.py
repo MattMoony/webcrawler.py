@@ -84,10 +84,10 @@ def get_extension(url):
     return url.split("/")[-1].split(".")[-1] if "." in url else ""
 
 def domain_from_url(url):
-    return url.split("://")[1][:url.split("://")[1].index('/')]
+    return url.split("://")[1][: url.split("://")[1].index('/') if '/' in url.split('://') else None]
 
 def path_from_url(url):
-    return '/' + '/'.join(url.split("://")[1].split("/")[1:])
+    return '/' + '/'.join(url.split("://")[1].split("/")[1:]).replace('//', '/')
 
 def common_words(text_content, ignored_words=[], words_limit=10):
     words = PriorityQueue()
@@ -151,16 +151,15 @@ def index_webpage(url, protocols=[], indexable_docs=[], image_types=[],
 
                 print(" [" + str(thread_name) + "] Indexing \"" + curl + "\" ... ", end='')
                 
-                if ext in indexable_docs or curl.endswith('/'):
-                    doc_info, links, imgs = evaluate_doc(req.get(curl).text, ignored_words, index_words_limit)
+                if ext in indexable_docs or path_from_url(curl).endswith('/'):
+                    doc_info, links, imgs = evaluate_doc(req.get(curl, timeout=2).text, ignored_words, index_words_limit)
 
                     doc_infos.append(doc_info)
 
                     doc_infos[-1]["file_type"] = ext
-                    doc_infos[-1]["protocol"] = prot
+                    doc_infos[-1]["protocols"] = [prot]
                     doc_infos[-1]["domain"] = domain_from_url(curl)
                     doc_infos[-1]["path"] = path_from_url(curl)
-                    doc_infos[-1]["url"] = curl
 
                     if len(found_docs) == 0:
                         for d in links:
@@ -181,15 +180,18 @@ def index_webpage(url, protocols=[], indexable_docs=[], image_types=[],
 
                     doc_infos[-1]["is_image"] = True
                     doc_infos[-1]["file_type"] = ext
-                    doc_infos[-1]["protocol"] = prot
+                    doc_infos[-1]["protocols"] = [prot]
                     doc_infos[-1]["domain"] = domain_from_url(curl)
                     doc_infos[-1]["path"] = path_from_url(curl)
-                    doc_infos[-1]["url"] = curl
 
                 print(" [" + str(len(found_docs)) + "/" + str(len(found_imgs)) + "]")
-            except req.exceptions.ConnectTimeout:
-                continue
-    except req.exceptions.ConnectionError:
+            except (req.exceptions.ConnectionError,
+                    req.exceptions.Timeout,
+                    req.exceptions.RequestException):
+                print('Unsupported protocol ... ')
+    except (req.exceptions.ConnectionError,
+            req.exceptions.Timeout,
+            req.exceptions.RequestException):
         print("Host didn't respond ... ")
 
     return (
@@ -217,8 +219,23 @@ def crawl(undiscovered, discovered, default_url=None, thread_name="", indexer_co
             if len(res[0])>0:
                 for dis in res[0]:
                     if len(dis.keys())>0:
-                        dis["link_info"] = c_doc["link_info"] if c_doc and c_doc["link_info"] else ""
-                        discovered.insert_one(dis)
+                        dis["link_info"] = [c_doc["link_info"].strip() if c_doc and c_doc["link_info"] else ""]
+
+                        if discovered.count_documents({'domain': dis['domain'], 'path': dis['path']}) > 0:
+                            discovered.find_one_and_update(
+                                {'domain': dis['domain'], 'path': dis['path']},
+                                {'$addToSet': { 'link_info': { '$each': dis['link_info'] },
+                                                'protocols': { '$each': dis['protocols'] }},
+                                 '$set': { 'title': dis['title'],
+                                           'frequent_words': dis['frequent_words'],
+                                           'lang': dis['lang'],
+                                           'a_count': dis['a_count'],
+                                           'img_count': dis['img_count'] }
+                                }
+                            )
+                        else:
+                            discovered.insert_one(dis)
+                        
 
             dis_docs = [{'url': d[0], 'link_info': d[1]} for d in res[1]]
             dis_imgs = [{'url': i[0], 'link_info': i[1]} for i in res[2]]
