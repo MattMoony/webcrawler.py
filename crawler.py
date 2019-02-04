@@ -84,10 +84,11 @@ def get_extension(url):
     return url.split("/")[-1].split(".")[-1] if "." in url else ""
 
 def domain_from_url(url):
-    return url.split("://")[1][: url.split("://")[1].index('/') if '/' in url.split('://') else None].replace('/', '')
+    return urllib.parse.splitport(urllib.parse.splithost('//'+url.split('://')[1] if '://' in url else url)[0])[0]
 
 def path_from_url(url):
-    return re.sub(r"\/{2,}", '', '/' + '/'.join(url.split("://")[1].split("/")[1:]))
+    p = urllib.parse.splithost('//'+url.split('://')[1] if '://' in url else url)[1]
+    return p if len(p) > 0 else '/'
 
 def common_words(text_content, ignored_words=[], words_limit=10):
     words = PriorityQueue()
