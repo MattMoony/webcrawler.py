@@ -88,7 +88,7 @@ def domain_from_url(url):
 
 def path_from_url(url):
     p = urllib.parse.splithost('//'+url.split('://')[1] if '://' in url else url)[1]
-    return p if len(p) > 0 else '/'
+    return re.sub(r"\/{2,}", "", p) if len(p) > 0 else '/'
 
 def common_words(text_content, ignored_words=[], words_limit=10):
     words = PriorityQueue()
@@ -123,7 +123,7 @@ def evaluate_doc(html, ignored_words=[], index_words_limit=10):
     else:
         info["lang"] = ""
 
-    info["a_count"] = len(soup.find_all('a'))
+    info["a_count"] = len(soup.find_all(lambda t: 'href' in t.attrs.keys()))
     info["img_count"] = len(soup.find_all('img'))
 
     [s.extract() for s in soup.find_all('script')]
@@ -134,7 +134,7 @@ def evaluate_doc(html, ignored_words=[], index_words_limit=10):
 
     return (
         info,
-        soup.find_all('a'),
+        soup.find_all(lambda t: 'href' in t.attrs.keys()),
         soup.find_all('img')
     )
 
@@ -164,8 +164,6 @@ def index_webpage(url, protocols=[], indexable_docs=[], image_types=[],
 
                     if len(found_docs) == 0:
                         for d in links:
-                            if not d.get('href'):
-                                continue
                             if d.get('href').startswith('javascript'):
                                 continue
                             found_docs.append((parse_url(d.get('href'), curl), d.text or ""))
@@ -284,12 +282,12 @@ def main():
     _thread.start_new_thread(crawl, (undiscovered, discovered, crawler_conf['start_url'] or None, 
                                         Fore.LIGHTCYAN_EX + "Thread-1" + Fore.RESET, 
                                         {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
-    _thread.start_new_thread(crawl, (undiscovered, discovered, crawler_conf['start_url'] or None, 
-                                        Fore.LIGHTGREEN_EX + "Thread-2" + Fore.RESET, 
-                                        {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
-    _thread.start_new_thread(crawl, (undiscovered, discovered, crawler_conf['start_url'] or None, 
-                                        Fore.LIGHTMAGENTA_EX + "Thread-3" + Fore.RESET, 
-                                        {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
+    # _thread.start_new_thread(crawl, (undiscovered, discovered, crawler_conf['start_url'] or None, 
+    #                                     Fore.LIGHTGREEN_EX + "Thread-2" + Fore.RESET, 
+    #                                     {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
+    # _thread.start_new_thread(crawl, (undiscovered, discovered, crawler_conf['start_url'] or None, 
+    #                                     Fore.LIGHTMAGENTA_EX + "Thread-3" + Fore.RESET, 
+    #                                     {k:v for k,v in crawler_conf.items() if k != 'start_url'}))
 
     while _thread._count() > 0:
         pass
